@@ -34,59 +34,61 @@ from common.utils import *
 
 
 args = parse_args()
-log =  logging.getLogger()
+log = logging.getLogger()
 print(f"args.gpu type: {type(args.gpu)}, value: {args.gpu}")
 
+# 设置 GPU
 if args.gpu is None:
-    # 不设置环境变量，或者设为空（即使用默认GPU）
-    print("Warning: args.gpu is None, CUDA_VISIBLE_DEVICES will not be set.")
+    print("Warning: args.gpu is None, using default CUDA device.")
 else:
     if isinstance(args.gpu, (list, tuple)):
         os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, args.gpu))
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
-
-
+# 创建 checkpoint 文件夹
 try:
-    # Create checkpoint directory if it does not exist
-    os.makedirs(args.checkpoint)
+    os.makedirs(args.checkpoint, exist_ok=True)
 except OSError as e:
-    if e.errno != errno.EEXIST:
-        raise RuntimeError('Unable to create checkpoint directory:', args.checkpoint)
+    raise RuntimeError('Unable to create checkpoint directory:', args.checkpoint)
 
 print('Loading dataset...')
-dataset_path = 'data/data_3d_' + args.dataset + '.npz'
+# 根据 args.dataset 选择加载
 if args.dataset == 'h36m':
     from common.h36m_dataset import Human36mDataset
+    dataset_path = 'data/data_3d_h36m.npz'
     dataset = Human36mDataset(dataset_path)
-elif args.dataset.startswith('custom'):
+elif args.dataset == 'athletics':
     from common.custom_dataset import CustomDataset
-    dataset = CustomDataset('data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz')
+    # 3D 数据
+    dataset_3d_path = 'data/data_3d_athletics.npz'
+    # 2D 数据
+    dataset_2d_path = f'data/data_2d_athletics_{args.keypoints}.npz'
+    dataset = CustomDataset(dataset_2d_path, dataset_3d_path)
 else:
-    raise KeyError('Invalid dataset')
+    raise KeyError(f"Invalid dataset: {args.dataset}")
 
 print('Preparing data...')
+# 3D 坐标转换到相机坐标系
 for subject in dataset.subjects():
     for action in dataset[subject].keys():
         anim = dataset[subject][action]
-
         if 'positions' in anim:
             positions_3d = []
             for cam in anim['cameras']:
                 pos_3d = world_to_camera(anim['positions'], R=cam['orientation'], t=cam['translation'])
-                pos_3d[:, 1:] -= pos_3d[:, :1] # Remove global offset, but keep trajectory in first position
+                pos_3d[:, 1:] -= pos_3d[:, :1]  # 移除全局偏移
                 positions_3d.append(pos_3d)
             anim['positions_3d'] = positions_3d
 
 print('Loading 2D detections...')
-keypoints = np.load('data/data_2d_' + args.dataset + '_' + args.keypoints + '.npz', allow_pickle=True)
+# 2D keypoints
+keypoints = np.load(dataset_2d_path, allow_pickle=True)
 keypoints_metadata = keypoints['metadata'].item()
 keypoints_symmetry = keypoints_metadata['keypoints_symmetry']
 kps_left, kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
 joints_left, joints_right = list(dataset.skeleton().joints_left()), list(dataset.skeleton().joints_right())
 keypoints = keypoints['positions_2d'].item()
-
 ###################
 for subject in dataset.subjects():
     assert subject in keypoints, 'Subject {} is missing from the 2D detections dataset'.format(subject)
