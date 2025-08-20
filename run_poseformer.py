@@ -119,12 +119,15 @@ for subject in keypoints.keys():
             kps[..., :2] = normalize_screen_coordinates(kps[..., :2], w=cam['res_w'], h=cam['res_h'])
             keypoints[subject][action][cam_idx] = kps
 
-if args.dataset == 'h36m':
+if args.dataset == 'h36m': 
     subjects_train = 'S1,S5,S6,S7,S8'.split(',')
-    subjects_test = 'S9,S11'.split(',')
-else:  # athletics 或其他自定义数据集
-    subjects_train = args.subjects_train.split(',')
-    subjects_test = args.subjects_test.split(',')
+    subjects_test  = 'S9,S11'.split(',')
+else:  # athletics
+    all_videos = list(keypoints.keys())
+    split_idx = int(0.7 * len(all_videos))  # 70%训练, 30%测试
+    subjects_train = all_videos[:split_idx]
+    subjects_test  = all_videos[split_idx:]
+
 
 
 
