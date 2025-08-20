@@ -227,7 +227,13 @@ if torch.cuda.is_available():
 if args.resume or args.evaluate:
     chk_filename = os.path.join(args.checkpoint, args.resume if args.resume else args.evaluate)
     print('Loading checkpoint', chk_filename)
-    checkpoint = torch.load(chk_filename, map_location=lambda storage, loc: storage)
+
+    # 安全加载 checkpoint，允许 numpy.random._pickle.__randomstate_ctor
+    import numpy as np
+    with torch.serialization.safe_globals([np.random._pickle.__randomstate_ctor]):
+        checkpoint = torch.load(chk_filename, map_location=lambda storage, loc: storage)
+
+    # 加载模型权重
     model_pos_train.load_state_dict(checkpoint['model_pos'], strict=False)
     model_pos.load_state_dict(checkpoint['model_pos'], strict=False)
 
