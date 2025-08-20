@@ -52,85 +52,75 @@ try:
 except OSError as e:
     raise RuntimeError('Unable to create checkpoint directory:', args.checkpoint)
 
-print('Loading dataset...')
-# 根据 args.dataset 选择加载
-if args.dataset == 'h36m':
-    from common.h36m_dataset import Human36mDataset
-    dataset_path = 'data/data_3d_h36m.npz'
+if args.dataset == 'h36m' or args.dataset == 'athletics':
+    if args.dataset == 'h36m':
+        from common.h36m_dataset import Human36mDataset
+        dataset_path = 'data/data_3d_h36m.npz'
+    else:
+        from common.h36m_dataset import Human36mDataset  # 直接复用 H36M Dataset 类
+        dataset_path = 'data/data_3d_athletics.npz'
+
     dataset = Human36mDataset(dataset_path)
-elif args.dataset == 'athletics':
-    from common.custom_dataset import CustomDataset
-    # 3D 数据
-    dataset_3d_path = 'data/data_3d_athletics.npz'
-    # 2D 数据
-    dataset_2d_path = f'data/data_2d_athletics_{args.keypoints}.npz'
-    dataset = CustomDataset(dataset_2d_path, dataset_3d_path)
-else:
-    raise KeyError(f"Invalid dataset: {args.dataset}")
 
-print('Preparing data...')
-# 3D 坐标转换到相机坐标系
-for subject in dataset.subjects():
-    for action in dataset[subject].keys():
-        anim = dataset[subject][action]
-        if 'positions' in anim:
-            positions_3d = []
-            for cam in anim['cameras']:
-                pos_3d = world_to_camera(anim['positions'], R=cam['orientation'], t=cam['translation'])
-                pos_3d[:, 1:] -= pos_3d[:, :1]  # 移除全局偏移
-                positions_3d.append(pos_3d)
-            anim['positions_3d'] = positions_3d
+    print('Preparing data...')
+    # 3D 坐标转换到相机坐标系
+    for subject in dataset.subjects():
+        for action in dataset[subject].keys():
+            anim = dataset[subject][action]
+            if 'positions' in anim:
+                positions_3d = []
+                for cam in anim['cameras']:
+                    pos_3d = world_to_camera(anim['positions'], R=cam['orientation'], t=cam['translation'])
+                    pos_3d[:, 1:] -= pos_3d[:, :1]  # 移除全局偏移
+                    positions_3d.append(pos_3d)
+                anim['positions_3d'] = positions_3d
 
-print('Loading 2D detections...')
-# 2D keypoints
-keypoints = np.load(dataset_2d_path, allow_pickle=True)
-keypoints_metadata = keypoints['metadata'].item()
-keypoints_symmetry = keypoints_metadata['keypoints_symmetry']
-kps_left, kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
-joints_left, joints_right = list(dataset.skeleton().joints_left()), list(dataset.skeleton().joints_right())
-keypoints = keypoints['positions_2d'].item()
-###################
-for subject in dataset.subjects():
-    assert subject in keypoints, 'Subject {} is missing from the 2D detections dataset'.format(subject)
-    for action in dataset[subject].keys():
-        assert action in keypoints[subject], 'Action {} of subject {} is missing from the 2D detections dataset'.format(action, subject)
-        if 'positions_3d' not in dataset[subject][action]:
-            continue
+    print('Loading 2D detections...')
+    # 2D keypoints
+    if args.dataset == 'h36m':
+        dataset_2d_path = 'data/data_2d_h36m.npz'
+    else:
+        dataset_2d_path = f'data/data_2d_athletics_{args.keypoints}.npz'
 
-        for cam_idx in range(len(keypoints[subject][action])):
+    keypoints = np.load(dataset_2d_path, allow_pickle=True)
+    keypoints_metadata = keypoints['metadata'].item()
+    keypoints_symmetry = keypoints_metadata['keypoints_symmetry']
+    kps_left, kps_right = list(keypoints_symmetry[0]), list(keypoints_symmetry[1])
+    joints_left, joints_right = list(dataset.skeleton().joints_left()), list(dataset.skeleton().joints_right())
+    keypoints = keypoints['positions_2d'].item()
 
-            # We check for >= instead of == because some videos in H3.6M contain extra frames
-            mocap_length = dataset[subject][action]['positions_3d'][cam_idx].shape[0]
-            assert keypoints[subject][action][cam_idx].shape[0] >= mocap_length
+    for subject in dataset.subjects():
+        assert subject in keypoints, 'Subject {} is missing from the 2D detections dataset'.format(subject)
+        for action in dataset[subject].keys():
+            assert action in keypoints[subject], 'Action {} of subject {} is missing from the 2D detections dataset'.format(action, subject)
+            if 'positions_3d' not in dataset[subject][action]:
+                continue
 
-            if keypoints[subject][action][cam_idx].shape[0] > mocap_length:
-                # Shorten sequence
-                keypoints[subject][action][cam_idx] = keypoints[subject][action][cam_idx][:mocap_length]
+            for cam_idx in range(len(keypoints[subject][action])):
+                mocap_length = dataset[subject][action]['positions_3d'][cam_idx].shape[0]
+                assert keypoints[subject][action][cam_idx].shape[0] >= mocap_length
+                if keypoints[subject][action][cam_idx].shape[0] > mocap_length:
+                    keypoints[subject][action][cam_idx] = keypoints[subject][action][cam_idx][:mocap_length]
 
-        assert len(keypoints[subject][action]) == len(dataset[subject][action]['positions_3d'])
+            assert len(keypoints[subject][action]) == len(dataset[subject][action]['positions_3d'])
 
-for subject in keypoints.keys():
-    for action in keypoints[subject]:
-        for cam_idx, kps in enumerate(keypoints[subject][action]):
-            # Normalize camera frame
-            cam = dataset.cameras()[subject][cam_idx]
-            if args.std != 0:
-                kps += np.random.normal(loc=0.0, scale=args.std, size=kps.shape)
-            kps[..., :2] = normalize_screen_coordinates(kps[..., :2], w=cam['res_w'], h=cam['res_h'])
-            keypoints[subject][action][cam_idx] = kps
+    # 标准化 keypoints
+    for subject in keypoints.keys():
+        for action in keypoints[subject]:
+            for cam_idx, kps in enumerate(keypoints[subject][action]):
+                cam = dataset.cameras()[subject][cam_idx]
+                if args.std != 0:
+                    kps += np.random.normal(loc=0.0, scale=args.std, size=kps.shape)
+                kps[..., :2] = normalize_screen_coordinates(kps[..., :2], w=cam['res_w'], h=cam['res_h'])
+                keypoints[subject][action][cam_idx] = kps
 
-'''if args.dataset == 'h36m':
-    subjects_train = 'S1,S5,S6,S7,S8'.split(',')
-    subjects_test = 'S9,S11'.split(',')
-else:
-    subjects_train = args.subjects_train.split(',')
-    subjects_test = args.subjects_test.split(',')'''
-if args.dataset.startswith('custom'):
-    subjects_train = args.subjects_train.split(',')
-    subjects_test = args.subjects_test.split(',')
-else:
-    subjects_train = 'S1,S5,S6,S7,S8'.split(',')
-    subjects_test = 'S9,S11'.split(',')
+    # 训练/测试 subject
+    if args.dataset == 'h36m':
+        subjects_train = 'S1,S5,S6,S7,S8'.split(',')
+        subjects_test = 'S9,S11'.split(',')
+    else:  # athletics 也走同样规则
+        subjects_train = args.subjects_train.split(',')
+        subjects_test = args.subjects_test.split(',')
 
 
 def fetch(subjects, action_filter=None, subset=1, parse_3d_poses=True, load_gt=False):
