@@ -1,30 +1,45 @@
-Trampoline Action Analysis Based on PoseFormerV2
+Trampoline 3D Pose Estimation & Action Quality Assessment
+<p align="center">
 
-A computer vision pipeline for 3D human pose reconstruction and action quality assessment (AQA) from single-camera trampoline videos using PoseFormerV2.
+Single-view 3D human pose reconstruction and action scoring for trampoline sports
+based on PoseFormerV2 and Transformer temporal modeling.
 
-This project reconstructs 3D skeleton sequences from 2D keypoints and performs automatic action scoring based on the reconstructed motion features.
+</p> <p align="center">
 
-Project Overview
 
-Trampoline sports involve high-speed rotation, large vertical displacement, and complex body movements, making manual motion analysis difficult.
 
-This project builds an end-to-end pipeline that:
 
-Extracts 2D human keypoints from trampoline videos
 
-Reconstructs 3D skeleton sequences using PoseFormerV2
 
-Applies temporal smoothing and skeleton constraints
 
-Generates 3D trajectory visualization
 
-Performs automatic action quality assessment
 
-The system can assist coaches and athletes in analyzing motion patterns and evaluating performance objectively.
 
-Pipeline
+</p>
+📖 Project Overview
 
-The full workflow of the system:
+Trampoline routines involve high-speed rotation, large vertical displacement,
+and complex body dynamics, making manual motion analysis difficult.
+
+This project builds an end-to-end computer vision pipeline that reconstructs 3D human skeletons from single-camera videos and performs automatic action quality assessment (AQA).
+
+The framework integrates:
+
+2D keypoint detection
+
+3D pose reconstruction
+
+temporal motion modeling
+
+trajectory visualization
+
+automatic scoring
+
+It provides a tool for objective motion analysis in trampoline training and sports science research.
+
+🚀 Pipeline
+
+The full pipeline of the proposed system:
 
 Video Input
      │
@@ -35,82 +50,43 @@ YOLOv8-Pose 2D Keypoint Detection
 Main Athlete Selection
      │
      ▼
-Temporal Smoothing (Savitzky–Golay)
+Temporal Smoothing
+(Savitzky–Golay Filter)
      │
      ▼
-PoseFormerV2 2D→3D Pose Reconstruction
+PoseFormerV2
+2D → 3D Pose Reconstruction
      │
      ▼
-Post-processing
-  • Temporal smoothing
-  • Bone length constraint
-  • Coordinate normalization
+Post-Processing
+• Bone Length Constraint
+• Temporal Stabilization
+• Coordinate Normalization
      │
      ▼
 3D Skeleton Visualization
      │
      ▼
-Action Quality Assessment (Regression Model)
-Example Result
-
-The system produces synchronized 2D pose detection and 3D pose reconstruction.
-
-Example:
-
-Left: 2D skeleton overlay on trampoline video
-
-Right: reconstructed 3D skeleton with trajectory
-
-This allows intuitive observation of motion patterns, rotation phases, and trajectory changes.
-
-Model Performance
-3D Pose Estimation
-Metric	Value
-MPJPE	46 mm
-P-MPJPE	37 mm
-
-MPJPE measures the average Euclidean distance between predicted and ground-truth joint positions.
-
 Action Quality Assessment
-Metric	Value
-MAE	4.46
-RMSE	6.17
-Spearman	0.66
+(Regression Model)
+🧠 Key Features
+✔ Robust 2D Pose Detection
 
-The results show that the model can predict action scores and maintain ranking consistency with ground truth evaluations.
+YOLOv8-Pose based keypoint detection
 
-Dataset
+Main athlete tracking
 
-This project uses two datasets:
+Temporal smoothing
 
-AQA-7
+Missing frame compensation
 
-Used for trampoline action quality assessment
+✔ Transformer-based 3D Reconstruction
 
-FineDiving
+Uses PoseFormerV2 to model:
 
-Used for pretraining and improving motion representation
+spatial joint relationships
 
-Key Methods
-2D Pose Detection
-
-YOLOv8-Pose is used to extract 17 human keypoints.
-
-Additional strategies are applied:
-
-main athlete selection
-
-temporal keypoint smoothing
-
-missing frame compensation
-
-3D Pose Reconstruction
-
-The project uses PoseFormerV2, a transformer-based model that models:
-
-Spatial relationships between joints
-
-Temporal dependencies across frames
+long-term temporal dependencies
 
 Input:
 
@@ -119,21 +95,23 @@ Input:
 Output:
 
 (T × 17 × 3)
-Post-processing
+✔ Motion Stabilization
 
-To improve stability in high-speed trampoline movements:
+To handle high-speed trampoline motion, the system applies:
 
-• Savitzky–Golay temporal filtering
-• Bone-length constraint
-• World coordinate transformation
+Savitzky–Golay temporal filtering
 
-These steps reduce jitter and unrealistic skeleton deformation.
+bone length constraint
 
-Action Quality Assessment
+world coordinate transformation
 
-3D skeleton sequences are fed into a regression network that predicts trampoline action scores.
+These steps reduce skeleton jitter and unrealistic deformation.
 
-Evaluation metrics include:
+✔ Automatic Action Scoring
+
+The reconstructed 3D skeleton sequence is used to train a regression network for action quality assessment.
+
+Evaluation metrics:
 
 MAE
 
@@ -141,86 +119,129 @@ RMSE
 
 Spearman Rank Correlation
 
-Visualization
+📊 Experimental Results
+3D Pose Estimation
+Metric	Value
+MPJPE	46 mm
+P-MPJPE	37 mm
 
-The system provides:
+MPJPE measures the average Euclidean distance between predicted and ground truth joint positions.
 
-2D skeleton overlay
+Action Quality Assessment
+Metric	Value
+MAE	4.46
+RMSE	6.17
+Spearman	0.66
+
+Results show that the model can predict action scores and maintain ranking consistency with ground-truth evaluations.
+
+🎥 Visualization
+
+The system supports:
+
+2D skeleton overlay on video
 
 3D skeleton reconstruction
 
-3D motion trajectory
+motion trajectory visualization
 
-side-by-side comparison video
+side-by-side comparison
 
-This helps analyze jump height, rotation phase, and posture stability.
+Example workflow:
 
-Installation
-git clone https://github.com/yourname/Trampoline-Action-Recognition-PoseFormerV2.git
+Video Frame → 2D Pose → 3D Skeleton → Motion Trajectory
 
-cd Trampoline-Action-Recognition-PoseFormerV2
+This allows intuitive observation of:
 
-pip install -r requirements.txt
-Run Demo
-python demo/npz.py
+jump height
 
-This will:
+rotation phase
 
-Load 2D keypoints
+posture stability
 
-Run PoseFormerV2 inference
-
-Generate 3D skeleton visualization
-
-Project Structure
+📂 Project Structure
 PoseFormerV2-Trampoline/
 │
 ├── demo/
-│   ├── npz.py
+│   └── npz.py
 │
 ├── data/
-│   ├── train_output/
+│   └── train_output/
 │
 ├── inference/
-│   ├── filtered_keypoints_interp/
+│   └── filtered_keypoints_interp/
 │
 ├── models/
 │
 ├── visualization/
 │
+├── checkpoints/
+│
 └── README.md
-Limitations
+⚙ Installation
 
-Because the system uses single-camera video, depth estimation errors may occur in:
+Clone the repository:
 
-high-speed rotation
+git clone https://github.com/yourname/Trampoline-Action-Recognition-PoseFormerV2.git
 
-body occlusion
+cd Trampoline-Action-Recognition-PoseFormerV2
 
-trampoline contact phases
+Install dependencies:
 
-Future work could integrate multi-view cameras or depth sensors.
+pip install -r requirements.txt
+▶ Run Demo
 
-Future Work
+Run the demo script:
 
-Possible improvements:
+python demo/npz.py
 
-multi-view 3D pose reconstruction
+The script will:
 
-transformer-based scoring networks
+load 2D keypoints
+
+run PoseFormerV2 inference
+
+generate 3D pose visualization
+
+📦 Dataset
+
+This project uses:
+
+AQA-7
+
+Trampoline action quality assessment dataset
+
+FineDiving
+
+Used for model pretraining and motion representation learning
+
+⚠ Limitations
+
+Since the system relies on single-view video, depth ambiguity may occur during:
+
+high-speed rotations
+
+self-occlusion
+
+trampoline contact phase
+
+Future work may incorporate multi-view cameras or depth sensors.
+
+🔮 Future Work
+
+Possible improvements include:
+
+multi-view 3D pose estimation
+
+transformer-based scoring models
 
 larger trampoline motion datasets
 
-real-time motion analysis systems
+real-time training assistance systems
 
-Citation
+📚 Citation
 
-If you find this project helpful, please consider citing:
+If you find this project useful, please cite:
 
 PoseFormerV2: Exploring Frequency Domain for Efficient and Robust 3D Human Pose Estimation
 CVPR 2023
-Author
-
-Yuxi Deng
-Beijing Sport University
-Data Science and Big Data Technology
